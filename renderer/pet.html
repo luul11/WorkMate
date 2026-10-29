@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>乐乐</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: transparent;
+    -webkit-user-select: none; user-select: none;
+    cursor: default;
+  }
+  .stage {
+    position: relative;
+    width: 240px; height: 300px;
+    display: flex; flex-direction: column;
+    justify-content: flex-end; align-items: center;
+  }
+
+  .bubble {
+    position: absolute; left: 50%; bottom: 196px;
+    transform: translate(-50%, 6px);
+    width: max-content; max-width: 224px;
+    background: #FFFFFF;
+    border: 1px solid #E7E8F2;
+    border-radius: 13px;
+    box-shadow: 0 8px 26px rgba(30, 30, 46, .16);
+    opacity: 0;
+    transition: opacity .16s ease, transform .16s ease;
+    pointer-events: none;
+  }
+  .bubble.show { opacity: 1; transform: translate(-50%, 0); }
+  .bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px;
+    width: 12px; height: 12px; background: #FFFFFF;
+    border-right: 1px solid #E7E8F2; border-bottom: 1px solid #E7E8F2;
+    transform: rotate(45deg); border-bottom-right-radius: 3px;
+  }
+  .bubble-body {
+    padding: 9px 12px; max-height: 96px; overflow: auto;
+    font: 400 12.5px/1.6 "HarmonyOS Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+    color: #1E1E2E; white-space: pre-wrap; word-break: break-word;
+  }
+
+  .shadow {
+    position: absolute; bottom: 6px; left: 50%;
+    width: 96px; height: 12px; margin-left: -48px;
+    border-radius: 50%;
+    background: rgba(30, 30, 46, .18);
+    filter: blur(4px);
+    animation: shade 4s ease-in-out infinite;
+  }
+  @keyframes shade {
+    0%, 100% { transform: scale(1); opacity: .9; }
+    50% { transform: scale(.92); opacity: .6; }
+  }
+
+  .pet {
+    position: relative;
+    margin-bottom: 12px;
+    background-repeat: no-repeat;
+    image-rendering: auto;
+    cursor: grab;
+  }
+  .pet:active { cursor: grabbing; }
+
+  .hint {
+    position: absolute; bottom: 2px; left: 0; right: 0;
+    text-align: center;
+    font: 400 10px/1 "Microsoft YaHei", system-ui, sans-serif;
+    color: rgba(30, 30, 46, .28);
+    opacity: 0; transition: opacity .2s ease;
+  }
+  .stage:hover .hint { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="bubble" id="bubble" hidden><div class="bubble-body" id="bubble-text"></div></div>
+  <div class="shadow"></div>
+  <div class="pet" id="pet"></div>
+  <div class="hint">双击打开面板 · 右键更多</div>
+</div>
+
+<script src="./assets/pets/maimai/animations.js"></script>
+<script src="./pet.js"></script>
+<script>
+(function () {
+  var api = window.workmate || {};
+  var el = document.getElementById('pet');
+  var bubble = document.getElementById('bubble');
+  var bubbleText = document.getElementById('bubble-text');
+  var bubbleTimer = null;
+
+  var sprite = PetSprite.create(el, { width: 170 });
+  if (!sprite) { el.textContent = '素材没加载上'; return; }
+
+  var state = 'idle';
+  var dragging = false;
+  var moved = false;
+  var pressAt = { x: 0, y: 0 };
+  var lastX = 0;
+  var clickTimer = null;
+
+  function applyState(next) {
+    if (state === next) return;
+    state = next;
+    sprite.play(PetSprite.STATE_MAP[next] || 'idle');
+  }
+
+  function showBubble(text, ms) {
+    bubbleText.textContent = text;
+    bubble.hidden = false;
+    requestAnimationFrame(function () { bubble.classList.add('show'); });
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(function () {
+      bubble.classList.remove('show');
+      setTimeout(function () { bubble.hidden = true; }, 200);
+      // 说完就回待机，别一直保持「等回应」的姿势
+      if (state === 'talk') { state = ''; applyState('idle'); }
+    }, ms || 5000);
+  }
+
+  // ---- 主进程推过来的状态与台词 ----
+  if (api.onPetState) api.onPetState(applyState);
+  if (api.onSay) {
+    api.onSay(function (p) {
+      if (!p) return;
+      applyState('talk');
+      showBubble(p.text, p.ms);
+    });
+  }
+
+  // ---- 转头：只在不说话、不拖动的时候听光标 ----
+  if (api.onLook) {
+    api.onLook(function (deg) {
+      if (state !== 'idle' || dragging) return;
+      sprite.look(deg);
+    });
+  }
+  el.addEventListener('mouseenter', function () { if (!dragging) sprite.clearLook(); });
+
+  // ---- 拖动 + 点击 ----
+  el.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    dragging = true;
+    moved = false;
+    pressAt = { x: e.screenX, y: e.screenY };
+    if (api.drag) api.drag('start');
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    if (!moved && Math.abs(e.screenX - pressAt.x) + Math.abs(e.screenY - pressAt.y) > 4) {
+      moved = true;
+      lastX = e.screenX;
+    }
+    if (!moved) return;
+    // 拖动时按横向位移切跑动方向，左右各一组帧
+    var dir = e.screenX >= lastX ? 'right' : 'left';
+    lastX = e.screenX;
+    if (state !== 'drag-' + dir) {
+      state = 'drag-' + dir;
+      sprite.play('running-' + dir);
+    }
+  });
+
+  window.addEventListener('mouseup', function () {
+    if (!dragging) return;
+    dragging = false;
+    if (api.drag) api.drag('end');
+    if (!moved) {
+      // 双击会先触发两次单击，延后一点发出去，被 dblclick 取消掉
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(function () {
+        if (api.petClick) api.petClick('click');
+      }, 220);
+    }
+    state = '';
+    applyState('idle');
+  });
+
+  el.addEventListener('dblclick', function () {
+    clearTimeout(clickTimer);
+    if (api.petClick) api.petClick('dbl');
+  });
+
+  window.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    if (api.petMenu) api.petMenu();
+  });
+})();
+</script>
+</body>
+</html>

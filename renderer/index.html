@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>乐伴WorkMate</title>
+<meta name="description" content="一只住在屏幕角落的桌面宠物：读你当前在用什么软件，记得你答应过的事，该提醒时提醒、你专注时不打扰。" />
+<meta name="theme-color" content="#7B68EE" />
+<link rel="icon" href="./assets/pet.png" />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="state-idle">
+
+<!-- 首屏提示：给评审/新用户 5 秒说清楚这是什么、数据在哪 -->
+<div class="welcome" id="welcome" hidden>
+  <div class="welcome-card">
+    <img src="./assets/pet.png" alt="" class="welcome-pet" />
+    <h1>乐伴WorkMate</h1>
+    <p class="welcome-lead">一只住在屏幕角落的狗：记得你答应过的事，你专注时不打扰。</p>
+    <ul class="welcome-list">
+      <li><b>数据只在你自己电脑上。</b>没有服务器、没有账号，存在本机的一个 JSON 文件里。</li>
+      <li><b>它只看你在用什么软件。</b>读的是前台进程名（比如 wps.exe），读不到窗口里的内容。</li>
+      <li><b>关掉主窗口它还在后台记录。</b>要真退出，右键桌宠 → 退出 乐伴WorkMate。</li>
+    </ul>
+    <div class="welcome-actions">
+      <button class="primary" id="welcome-demo">先看演示数据</button>
+      <button id="welcome-blank">从空白开始</button>
+    </div>
+    <p class="welcome-foot">不收集、不上传、不需要登录。随时可以在「设置」里导出或清空全部数据。</p>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+  <!-- ======================= 左栏：宠物 + 此刻 ======================= -->
+  <aside class="rail">
+    <div class="brand">
+      <img src="./assets/pet.png" alt="" class="brand-logo" />
+      <div>
+        <h1>乐伴WorkMate</h1>
+        <p>桌面陪伴型助手</p>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="shadow"></div>
+      <div class="pet" id="pet" title="单击说话，双击记一件事，右键更多">
+        <div class="sprite" id="pet-sprite" role="img" aria-label="乐乐"></div>
+      </div>
+      <div class="fx" id="fx" aria-hidden="true"></div>
+      <div class="bubble" id="bubble" hidden>
+        <div class="bubble-body"><span id="bubble-text"></span></div>
+      </div>
+    </div>
+
+    <div class="live">
+      <span class="dot" id="live-dot"></span>
+      <span id="live-text">在线</span>
+      <span class="live-sep">·</span>
+      <span id="live-focus">专注 —</span>
+      <button class="link" id="btn-pause">暂停</button>
+    </div>
+
+    <button class="walk" id="btn-walk">远行冒险 →</button>
+
+    <div class="cat-pick">
+      <span>此刻在做</span>
+      <b id="live-app">浏览</b>
+    </div>
+    <label class="cat-pick">
+      <span>纠正</span>
+      <select id="cat-select"></select>
+    </label>
+    <p class="rail-note">读的是前台窗口的进程名，1 分钟一拍，自动归类。认错了在「纠正」里改，30 分钟内按你选的算。</p>
+
+    <div class="quick">
+      <button class="primary" id="q-todo">记一件事</button>
+      <button id="q-data">数据文件夹</button>
+    </div>
+
+    <div class="rail-foot">
+      <span id="rail-privacy">数据仅存本机</span>
+      <button class="link" id="btn-export-quick">导出</button>
+    </div>
+  </aside>
+
+  <!-- ======================= 右栏：工作台 ======================= -->
+  <main class="main">
+    <div class="banner" id="demo-banner" hidden>
+      <span>这是一份<b>演示数据</b>，方便你先看效果。</span>
+      <button class="link" id="banner-clear">清空，开始记录我自己 →</button>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-pane="today" role="tab">今日</button>
+      <button class="tab" data-pane="todo" role="tab">待办</button>
+      <button class="tab" data-pane="poll" role="tab">轮询</button>
+      <button class="tab" data-pane="memory" role="tab">记忆</button>
+      <button class="tab" data-pane="settings" role="tab">设置</button>
+      <span class="tabs-spacer"></span>
+      <span class="today-date" id="today-date"></span>
+    </nav>
+
+    <!-- ---------------------------- 今日 ---------------------------- -->
+    <section class="pane" id="pane-today">
+      <div class="stats">
+        <div class="stat">
+          <b id="st-active">—</b>
+          <span>今日在线</span>
+        </div>
+        <div class="stat">
+          <b id="st-focus">—</b>
+          <span>当前连续</span>
+        </div>
+        <div class="stat">
+          <b id="st-blocks">—</b>
+          <span>工作块</span>
+        </div>
+        <div class="stat">
+          <b id="st-pending">—</b>
+          <span>待办未完成</span>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2>时间去向 <span class="h2-sub" id="cats-total"></span></h2>
+          <div class="bars" id="cats"></div>
+          <p class="hint">读前台窗口的进程名，1 分钟记一拍；暂停即停。</p>
+        </div>
+
+        <div class="card">
+          <h2>今天 <span class="h2-sub" id="diary-sub"></span></h2>
+          <p class="diary" id="diary-text">还没有记录。</p>
+          <div class="actions">
+            <button id="btn-write-diary">写今天的日记</button>
+            <button id="btn-goto-memory" class="plain">看记忆分层</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>今天在做什么 <span class="h2-sub" id="blocks-sum"></span></h2>
+        <div class="blocks" id="blocks">
+          <div class="empty">还没有工作记录。干几分钟活就会出现。</div>
+        </div>
+        <p class="hint">按类别把连续时段折成「工作块」：同类且间隔不超过 2 分钟就并入，离开的时间不计入时长。少于 2 分钟的碎片不显示；更短的碎片照样计入总时长和类别占比，只是不往这个列表里塞。</p>
+      </div>
+
+      <div class="card">
+        <h2>最近发生 <span class="h2-sub">狗子的动态</span></h2>
+        <div class="feed" id="feed"><div class="empty">它还没动。点它一下试试。</div></div>
+        <p class="hint">只记这一会儿发生的事，关掉应用就清空。</p>
+      </div>
+    </section>
+
+    <!-- ---------------------------- 待办 ---------------------------- -->
+    <section class="pane" id="pane-todo" hidden>
+      <div class="card">
+        <h2>记一件事</h2>
+        <div class="composer">
+          <input id="todo-input" type="text" maxlength="160"
+            placeholder="后天可能需要出差去深圳，见客户，在此之前还要订好机票和酒店" autocomplete="off" />
+          <button class="primary" id="todo-add">添加</button>
+        </div>
+        <div class="preview" id="todo-preview" hidden></div>
+        <div class="quick-times">
+          <button data-min="30">30 分钟后</button>
+          <button data-min="60">1 小时后</button>
+          <button data-min="180">3 小时后</button>
+          <button data-at="tomorrow10">明天 10:00</button>
+          <button data-at="dayafter10">后天 10:00</button>
+          <button id="todo-clip" class="ghost">读剪贴板</button>
+        </div>
+        <p class="hint">可以直接写「明天下午三点提醒我发周报」。一句话里的多件事会拆成多条，并处理「在此之前」这类前置关系。</p>
+      </div>
+
+      <div class="card">
+        <h2>清单 <span class="h2-sub" id="todo-sum"></span></h2>
+        <div class="todo-list" id="todo-list"></div>
+      </div>
+    </section>
+
+    <!-- ---------------------------- 轮询 ---------------------------- -->
+    <section class="pane" id="pane-poll" hidden>
+      <div class="card">
+        <h2>明细 <span class="h2-sub" id="poll-sub"></span></h2>
+        <p class="poll-head" id="poll-head">还没有拍到。等一分钟。</p>
+        <table class="poll">
+          <thead><tr><th>进程</th><th>类别</th><th>窗口标题</th></tr></thead>
+          <tbody id="poll-body"><tr><td colspan="3" class="empty">—</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>历史 <span class="h2-sub">最近 20 拍 · 只记前台</span></h2>
+        <p class="hint" style="margin-top:0">每分钟只留当时的前台窗口。点一行，上面就换成那一拍的完整明细。</p>
+        <div class="hist" id="poll-hist">
+          <div class="empty">还没有拍到。等一分钟。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------- 记忆 ---------------------------- -->
+    <section class="pane" id="pane-memory" hidden>
+      <div class="card">
+        <h2>乐乐的冒险日志 <span class="h2-sub" id="story-sub"></span></h2>
+        <div class="feed" id="story-list"><div class="empty">它还没出门。过一会儿再来看看。</div></div>
+        <p class="hint">它每小时自己出门一趟，回来讲一段。楼下会碰见别的狗：投缘就交个朋友，不对付就打一架；有时候几只会凑一桌打阿瓦隆或狼人杀。偶尔也和当天用过的软件打一架。</p>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2>记忆分层</h2>
+          <p class="hint" style="margin-top:0">
+            三层逐级压缩：一天的采样压成日记，一批日记压成月度摘要，月度摘要再压成一句印象。
+            每层只读下一层的数据，全部是本地统计，没有模型参与。
+          </p>
+
+          <div class="layer">
+            <h3>短期 · 按天 <span class="layer-sub">分钟采样 → 一天一段话</span></h3>
+            <div id="notes-short" class="notes"></div>
+            <div class="layer-act">
+              <button id="btn-rollup-day">压缩今天</button>
+              <span class="layer-tip">取今天的活跃时长、工作块数、类别占比，拼成一段话。计算过程可预期，同一份数据写出来永远一样。</span>
+            </div>
+          </div>
+
+          <div class="layer">
+            <h3>中期 · 按月 <span class="layer-sub">每天日记 → 一个月一段</span></h3>
+            <div id="notes-mid" class="notes"></div>
+            <div class="layer-act">
+              <button id="btn-rollup-month">压缩本月</button>
+              <span class="layer-tip">把整月每天的数据加起来：有效天数、日均在线、时间主要花在哪两类。做完之后，这个月的日记就可以删了。</span>
+            </div>
+          </div>
+
+          <div class="layer">
+            <h3>长期 · 一两句话 <span class="layer-sub">月度摘要 → 一句印象</span></h3>
+            <div id="notes-long" class="notes"></div>
+            <div class="layer-act">
+              <button id="btn-rollup-long">压缩长期</button>
+              <span class="layer-tip">只从月度摘要里再压一层，所以得先有月度摘要。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>习惯与风险</h2>
+          <div class="kv"><span>样本天数</span><b id="hb-days">—</b></div>
+          <div class="kv"><span>平均在线</span><b id="hb-avg">—</b></div>
+          <div class="kv"><span>平均开工 / 收工</span><b id="hb-span">—</b></div>
+          <div class="kv"><span>时间去向</span><b id="hb-cats">—</b></div>
+          <div class="risks" id="risks"></div>
+          <p class="hint">「习惯」由每日画像统计得出；风险每 10 分钟随页面刷新一次。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------- 设置 ---------------------------- -->
+    <section class="pane" id="pane-settings" hidden>
+      <div class="card">
+        <h2>提醒</h2>
+        <div class="form-row">
+          <label>静默时段</label>
+          <div class="inline">
+            <input type="time" id="set-quiet-start" /> <span>—</span> <input type="time" id="set-quiet-end" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>午休静默</label>
+          <div class="inline">
+            <input type="time" id="set-lunch-start" /> <span>—</span> <input type="time" id="set-lunch-end" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>打扰预算</label>
+          <div class="inline">
+            <input type="number" id="set-budget-max" min="0" max="8" step="1" class="num" /> 次 /
+            <input type="number" id="set-budget-win" min="10" max="120" step="10" class="num" /> 分钟
+          </div>
+        </div>
+
+        <label class="switch"><input type="checkbox" id="set-adaptive" /><span>深夜还在用电脑时，不按静默处理</span></label>
+        <label class="switch"><input type="checkbox" id="set-sound" /><span>提醒时响一声</span></label>
+
+        <div class="actions" style="margin-top:10px">
+          <button id="btn-notify">开启系统通知</button>
+          <button id="btn-notify-test">发一条测试</button>
+          <span class="status" id="notify-status"></span>
+        </div>
+        <p class="hint">主进程每秒轮询一次提醒队列，主窗口关掉了也照常响。系统通知由 Electron 直接发到 Windows 通知中心。</p>
+      </div>
+
+      <div class="card">
+        <h2>识别与环境</h2>
+        <div class="kv"><span>当前前台</span><b id="env-fg">—</b></div>
+        <div class="kv"><span>数据目录</span><b id="env-dir" class="path">—</b></div>
+        <div class="kv"><span>运行环境</span><b id="env-ver">—</b></div>
+        <div class="actions" style="margin-top:10px">
+          <button id="btn-open-data">打开数据文件夹</button>
+          <button id="btn-rotate">立即归档历史</button>
+          <span class="status" id="store-status"></span>
+        </div>
+        <p class="hint">前台识别读的是进程名，覆盖常见的编辑器、办公套件、浏览器、会议和聊天工具；表里没有的应用落到「其他」。认错了就在左栏手动纠正。</p>
+      </div>
+
+      <div class="card">
+        <h2>数据</h2>
+        <div class="actions">
+          <button id="btn-export">导出 JSON</button>
+          <button id="btn-export-csv">导出工作块 CSV</button>
+          <button id="btn-import">导入 JSON</button>
+          <button class="danger" id="btn-reset">清空全部数据</button>
+        </div>
+        <p class="hint">导出文件包含你的待办、日记与工作块；导入会覆盖当前数据。没有云端，也就没有「注销账号」这一步。</p>
+        <input type="file" id="file-import" accept="application/json" hidden />
+      </div>
+
+      <div class="card">
+        <h2>关于</h2>
+        <p class="about">
+          乐伴WorkMate 是一个住在桌面角落的小助理，在工作和生活中感受黄毛拉布拉多犬（乐乐）的陪伴。
+        </p>
+        <p class="about">
+          它每分钟读一次当前前台窗口的进程名，把这段时间记进你今天的账里：几点到几点在写代码、看文档、刷网页，
+          还是锁着屏在休息。
+        </p>
+        <p class="about">
+          纯单机应用，技术栈是 Electron；数据写在本机三个文件里，没有账号，不联网。
+        </p>
+
+        <h3 class="about-h">它现在会做的事</h3>
+        <ul class="about-list">
+          <li>读前台窗口，按进程名归到编程、文档、浏览、运维、会议、休息、本应用、其他这八类</li>
+          <li>记时间账：今日总时长、类别去向、工作块时间轴，满一分钟自己就长出来</li>
+          <li>拆待办：「后天去深圳出差，在此之前订票」会拆成一条日程加一条前置任务</li>
+          <li>管提醒：静默时段、半小时预算、可顺延、逾期汇总</li>
+          <li>存记忆：日记、月度摘要、长期印象，三层逐级压缩，全是本地统计</li>
+          <li>养狗：它每小时自己出门一趟；点「远行冒险」能送它走一到三小时，每半小时带一件事回来</li>
+        </ul>
+
+        <div class="about-meta">
+          <div><span>作者</span><b>伊玛目的门徒</b></div>
+          <div><span>版本</span><b>V1.0.0</b></div>
+          <div><span>博客</span><b><a href="https://blog.csdn.net/qq_37195257" data-ext>blog.csdn.net/qq_37195257</a></b></div>
+          <div><span>邮箱</span><b><a href="mailto:luul11@163.com">luul11@163.com</a></b></div>
+        </div>
+
+        <blockquote class="about-motto">
+          我把乐伴（桌面陪伴型助理）开源，希望你能喜欢我的应用和乐乐，祝你早上、中午、晚上好~~
+        </blockquote>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 右键菜单 -->
+<div class="ctxmenu" id="ctxmenu" hidden>
+  <button data-act="say">说句话</button>
+  <button data-act="todo">记一件事</button>
+  <button data-act="pause">暂停 / 继续计时</button>
+  <div class="sep"></div>
+  <button data-act="settings">设置</button>
+  <button data-act="hide">隐藏宠物 30 分钟</button>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="../modules/lines.js"></script>
+<script src="../modules/story.js"></script>
+<script src="./assets/pets/maimai/animations.js"></script>
+<script src="./pet.js"></script>
+<script src="./bridge.js"></script>
+<script src="./app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# 依赖
+node_modules/
+
+# 打包产物
+dist/
+
+# 旧版网页转储，只为对照，不是源码
+_legacy/
+
+# 自检截图 + 探针输出（含本机窗口标题）
+_shots/
+
+# 乐乐的美术源文件（分帧设计稿），运行时用的是 renderer/assets 里的合图
+labrador-maimai/
+
+# 助手工作目录（内部笔记，不公开）
+.workbuddy/
+
+# 日志与系统文件
+*.log
+Thumbs.db
+Desktop.ini
+.DS_Store

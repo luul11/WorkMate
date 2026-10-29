@@ -1,0 +1,70 @@
+{
+  "name": "leban-workmate",
+  "productName": "乐伴WorkMate",
+  "version": "1.0.0",
+  "description": "乐伴WorkMate · 桌面陪伴型助手：读前台应用活跃，喂给本地统计，乐乐在角落陪你",
+  "author": "伊玛目的门徒 <luul11@163.com>",
+  "license": "MIT",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/launch.js",
+    "dev": "node scripts/launch.js --dev",
+    "shot": "node scripts/launch.js --shot",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.leban.workmate",
+    "productName": "乐伴WorkMate",
+    "copyright": "Copyright © 2026 伊玛目的门徒",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "modules/**/*",
+      "renderer/**/*",
+      "package.json",
+      "!**/*.md",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "乐伴WorkMate"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "koffi": "^3.3.5"
+  }
+}
